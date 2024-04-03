@@ -1,0 +1,2 @@
+emails.csv filter=lfs diff=lfs merge=lfs -text
+emailsDB.csv filter=lfs diff=lfs merge=lfs -text
