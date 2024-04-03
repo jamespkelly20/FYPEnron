@@ -20,10 +20,15 @@ def split_email_addresses(line):
     return addrs
 
 def filter_df():
+    print("WHY?111")
     df = pd.read_csv("emails.csv")
+    print("WHY?")
+    print(df)
     s_email_df = df.sample(100_000) # dont take the whole lot. Just sample 100000 emails. Thats more than enough
+
     messages = list(map(email.message_from_string, s_email_df['message']))
     s_email_df.drop('message', axis=1, inplace=True)
+
     # Get fields from parsed email objects
     keys = messages[0].keys()
     for key in keys:

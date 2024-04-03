@@ -121,6 +121,7 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
     # Iterate through each email
     #counter=0
     original_emails_info = []
+    large_email_repeated = False
 
     for i, email_content in enumerate(filtered_emails['content'].astype(str).tolist()):
         # Clean the email content
@@ -141,9 +142,10 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
             print("NOTE HERE IS A LARGE SIZED EMAIL/!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
             print("current_chunk_words before appending (previous EMAIL)", current_chunk_words, "\n")
             print("cleaned_content_count_words LARGE EMAIL CURRENT= ", cleaned_content_count_words, "\n") 
-            if i != 0:
+            if (i != 0) and not large_email_repeated: #There was a bug here. I was not catching the case where there were two "larged sized" emails one after the other. THe problem was if two large emails came one after the other, in between them i would append an empty chunk. And this was a bug in (if i != 0:)
                 chunks.append(current_chunk)
-                size_chunk.append(current_chunk_words)           
+                size_chunk.append(current_chunk_words)    
+                print("I HAVE JUST APPENDED ", current_chunk_words)       
                 current_chunk_words = 0#1800
                 current_chunk=""
             ##NOW WE BREAK UP THIS LARGE EMAIL HERE:
@@ -152,6 +154,7 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
             for word in cleaned_content.split():
                 if current_chunk_words + 1 > words_per_chunk:
                     chunks.append(current_chunk)
+                    print("JUST APPENDED core of email: ", current_chunk_words)
                     size_chunk.append(current_chunk_words)
                     current_chunk = word
                     current_chunk_words = 1
@@ -160,8 +163,10 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
                     current_chunk_words += 1
             chunks.append(current_chunk)
             size_chunk.append(current_chunk_words)
+            print("JUST APPENDED last bit of large email: ", current_chunk_words)
             current_chunk = ""
             current_chunk_words = 0
+            large_email_repeated = True
                    
         else:
             #######
@@ -193,10 +198,16 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
                 print("currCHUNK WORDS", current_chunk_words)
                 print("\n\n")
                 #counter+=1
+            large_email_repeated = False
 
-    #first we need to append the last chunks 
-    chunks.append(current_chunk)
-    size_chunk.append(current_chunk_words)
+    #first we need to append the last chunks. but this is only if the "last chunk" has not already been appended.
+    # it would have already been appended if the last email was a "large email", as after its added each word one 
+    # by one, it appends the chunks when the email has been completed. 
+    if not large_email_repeated:
+        chunks.append(current_chunk)
+        size_chunk.append(current_chunk_words) 
+
+    
     #print(number_outputs)
     total_sum = sum(size_chunk)
     print("NEW TOTAL_SUM = ", total_sum)

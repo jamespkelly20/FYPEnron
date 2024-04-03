@@ -82,7 +82,7 @@ import math
 import sys
 import re
 #sender_email = richard.shapiro@enron.com jeff.dasovich@enron.com
-openai.api_key = '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'
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Streamlit UI
 st.set_page_config(page_title="Email Summarization", page_icon=":tada:", layout="wide")
