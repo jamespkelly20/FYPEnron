@@ -144,11 +144,25 @@ with st.container():
             if "off_emails" in st.session_state.offline_summaries:
                 del st.session_state.offline_summaries["off_emails"]
 
-
     with right_column:
-        #st.header("The original emails")
-        # Display original emails information
         st.header("Original Emails:")
         for info in original_emails_info:
-            st.markdown(f"**From:** {info['From']}  \n**To:** {info['To']}  \n**Date:** {info['Date']}  \n**Email:** \n\n {info['Email']}  \n")
+            # Convert newlines in email content to HTML line breaks while escaping other HTML
+            formatted_email = info['Email'].replace("\n", "<br>")
+            
+            email_content = f"""
+            <div style="font-size: 16px;">
+                <strong><br>From:</strong> {info['From']}<br>
+                <strong>To:</strong> {info['To']}<br>
+                <strong>Date:</strong> {info['Date']}<br>
+                <strong>Email:</strong><br><br>{formatted_email}<br>
+            </div>
+            """
+            st.markdown(email_content, unsafe_allow_html=True) 
+    # with right_column:
+    #     #st.header("The original emails")
+    #     # Display original emails information
+    #     st.header("Original Emails:")
+    #     for info in original_emails_info:
+    #         st.markdown(f"**From:** {info['From']}  \n**To:** {info['To']}  \n**Date:** {info['Date']}  \n**Email:** \n\n {info['Email']}  \n")
 
