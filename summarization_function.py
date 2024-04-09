@@ -1,3 +1,4 @@
+
 # E.G. Summarize all the emails between Jack and Jane from January 1st to February 1st into a 500 word output
 import math
 import sys
@@ -6,61 +7,62 @@ import pandas as pd
 import email
 import openai
 from bs4 import BeautifulSoup
+import html2text
+import urllib
+
+import html
+from datetime import timedelta
 
 #pip install beautifulsoup4
 #pip install openai
 #pip install openai==0.28
 
+def clean_email_content(content):
+    soup = BeautifulSoup(content, 'html.parser')
+    [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+
+    unwanted_tags = ['style', 'script', 'head', 'title', 'div', 'table', 'tbody', 'tr', 'td', 'th', 'ul', 'li', 'span', 'a', 'p', 'img', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+    for tag in unwanted_tags:
+        for match in soup.findAll(tag):
+            match.replace_with('')
+  
+    text = soup.get_text(separator=' ', strip=True)
+
+    # Clean out remaining HTML tags and extract text
+    text = soup.get_text(separator='\n')
+
+    # Further clean up text
+    lines = (line.strip() for line in text.splitlines())
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    text = '\n'.join(chunk for chunk in chunks if chunk)
+
+    if text.startswith("---------- Forwarded message ---------"):
+        return text  # Return the entire content without modifications if its a forwarded message. That means there is no
+        # repeated emails from the conversation and hence we dont want to remove messages that start with 
+        # "On Oct 16, 2023, at 12:19 PM, Sean Kelly wrote:" like we do below. 
+    
+    pattern1 = r"On\s+\w{3},\s+\d{1,2}\s+\w{3}\s+\d{4}\s+at\s+\d{1,2}:\d{2},\s+.*?\s+wrote:"
+    # Split the text at the first pattern and keep only the first part
+    parts = re.split(pattern1, text, flags=re.DOTALL, maxsplit=1)
+    text1 = parts[0].strip() if parts else text    
+
+    # Second, more comprehensive pattern
+    pattern2 = r"On\s+\w{3},\s+(?:\d{1,2}\s+\w{3}|\w{3}\s+\d{1,2}),\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s*(?:AM|PM)?,?\s+.*?\s+wrote:"
+    # Split the text at the second pattern and keep only the first part
+    parts1 = re.split(pattern2, text1, flags=re.DOTALL | re.IGNORECASE, maxsplit=1)
+    finalOutput = parts1[0].strip() if parts1 else text1
+    # finalOutput =text
+
+    return finalOutput
+
+
+
+
+
 # Function to count words in a text
 def count_words(text):
     return len(text.split())
 
-# def clean_email_content(content):
-#     # Remove forwarded and quoted text
-#     cleaned_content = re.sub(r'(?s)---+ Forwarded.*?---+', '', content)
-#     cleaned_content = re.sub(r'(?s)>.*?(\n|$)', '', cleaned_content)
-#     # Remove lines starting with "Sent by:", email addresses, and dates
-#     cleaned_content = re.sub(r'^Sent by:.*?(\n|$)', '', cleaned_content, flags=re.MULTILINE)
-#     cleaned_content = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '', cleaned_content)
-#     cleaned_content = re.sub(r'\b\d{1,2}/\d{1,2}/\d{4}\b', '', cleaned_content)
-
-#     # Parse HTML content
-#     soup = BeautifulSoup(cleaned_content, 'html.parser')
-#     # Extract only text content
-#     cleaned_content = soup.get_text(separator='\n')
-#     #cleaned_content = re.sub(r'\s+', ' ', cleaned_content)
-
-#     return cleaned_content.strip()
-def clean_email_content(content):
-    cleaned_content = re.sub(r'(?s)---+ Forwarded.*?---+', '', content)
-    cleaned_content = re.sub(r'(?s)>.*?(\n|$)', '', cleaned_content)
-    # Remove lines starting with "Sent by:", email addresses, and dates
-    cleaned_content = re.sub(r'^Sent by:.*?(\n|$)', '', cleaned_content, flags=re.MULTILINE)
-    cleaned_content = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '', cleaned_content)
-    cleaned_content = re.sub(r'\b\d{1,2}/\d{1,2}/\d{4}\b', '', cleaned_content)
-
-    # Parse HTML content
-    soup = BeautifulSoup(cleaned_content, 'html.parser')
-    # Extract only text content
-    cleaned_content = soup.get_text(separator='\n')
-
-    # Remove HTML Tags. I just want the actual email content.  Nothing else.
-    cleaned_content = re.sub(r'<.*?>', '', cleaned_content)
-
-    # Remove these div tag lines etc
-    cleaned_content = re.sub(r'^(On|<div).*?(\n|$)', '', cleaned_content, flags=re.MULTILINE)
-
-    return cleaned_content.strip()
-
-#     # Parse HTML content
-#     soup = BeautifulSoup(content, 'html.parser')
-#     # Extract only text content
-#     content = soup.get_text(separator='\n')
-#     #cleaned_content = re.sub(r'\s+', ' ', cleaned_content)
-
-#     return content.strip()
-
-#words_per_chunk = math.floor(4096 / 2.2)
 
 def calculate_words_per_chunk():
     return math.floor(4096 / 2.2)
@@ -76,6 +78,8 @@ def extract_chunks(text, words_per_summary):
 
 # Function to get emails and summarize
 def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_words_in_output):
+    end_date = end_date + timedelta(days=1)  
+    print("end_date in summarization_function = ", end_date)
     words_per_chunk = calculate_words_per_chunk()
     # Step 1: Filter emails based on sender, recipient, and date range
     df['Date'] = pd.to_datetime(df['Date'], utc=True, errors='coerce') 
@@ -287,3 +291,33 @@ def get_emails_and_summarize(df, sender, recipient, start_date, end_date, total_
         return final_final_summary, original_emails_info
     else:
         return concatenated_summary, original_emails_info
+
+
+# def clean_email_content(content):
+#     soup = BeautifulSoup(content, 'html.parser')
+#     # Convert to text
+#     [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+
+#     unwanted_tags = ['style', 'script', 'head', 'title', 'div', 'table', 'tbody', 'tr', 'td', 'th', 'ul', 'li', 'span', 'a', 'p', 'img', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+#     for tag in unwanted_tags:
+#         for match in soup.findAll(tag):
+#             match.replace_with('')
+
+#     text = soup.get_text(separator=' ', strip=True)
+
+#     # # Remove style elements
+#     # for tag in soup(['style']):
+#     #     tag.decompose()
+
+#     # Clean out remaining HTML tags and extract text
+#     text = soup.get_text(separator='\n')
+
+#     # Further clean up text
+#     lines = (line.strip() for line in text.splitlines())
+#     chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+#     text = '\n'.join(chunk for chunk in chunks if chunk)
+
+#     return text
+
+
+    
