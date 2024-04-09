@@ -131,9 +131,15 @@ with st.container():
                     st.markdown(summary, unsafe_allow_html=True)
                     st.text("Summarization completed!")
                 except ValueError:
-                            st.warning("Error occurred during summarization. \n\nEither one or more email addresses have not been found, or there is no existing emails within the specified date range!")
+                    st.warning("Error occurred during summarization. \n\nEither one or more email addresses have not been found, or there is no existing emails within the specified date range!")
                 except openai.error.InvalidRequestError as e:
-                            st.warning(f"The total words in the emails exceeded the models capacity. \nPlease reduce the input and try again")
+                    st.warning(f"The total words in the emails exceeded the models capacity. \nPlease reduce the input and try again")
+                except openai.error.RateLimitError:
+                    # This block catches the RateLimitError specifically
+                    st.error("OPENAI has reached its limit. Try again soon or shorten the amount of emails you want summarized.")
+                except Exception as e:
+                    # Generic exception handler for any other exceptions
+                    st.error(f"An unexpected error occurred: {e}")
         if st.button("Clear Emails Output"):
             if "off_emails" in st.session_state.offline_summaries:
                 del st.session_state.offline_summaries["off_emails"]
